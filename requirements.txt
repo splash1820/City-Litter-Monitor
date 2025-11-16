@@ -1,0 +1,14 @@
+Flask==3.0.3
+psycopg2-binary==2.9.9
+python-dotenv==1.0.1
+
+# YOLOv5 + PyTorch
+torch==2.2.2
+torchvision==0.17.2
+
+# Image + Array processing
+Pillow==10.2.0
+numpy==1.26.4
+
+# (Optional but recommended)
+opencv-python-headless==4.10.0.84
