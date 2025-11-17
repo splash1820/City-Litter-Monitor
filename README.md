@@ -1,16 +1,4 @@
-Below is everything you asked for — clean and production-ready:
-
-* **requirements.txt**
-* **.env example with DB credentials**
-* **README.md content for GitHub**
-
-All formatted so you can paste directly into your project.
-
----
-
 # ✅ **requirements.txt**
-
-This includes only what your backend actually uses:
 
 ```
 Flask==3.0.3
@@ -25,12 +13,16 @@ torchvision==0.17.2
 Pillow==10.2.0
 numpy==1.26.4
 
+#
+dotenv
+flask_cors
+
 # (Optional but recommended)
 opencv-python-headless==4.10.0.84
 ```
 
 ⚠️ **Do NOT include ultralytics**
-Your project uses local YOLOv5, not ultralytics package.
+project uses local YOLOv5, not ultralytics package.
 
 ---
 
@@ -77,15 +69,10 @@ def get_db():
 
 ---
 
-# ✅ **README.md (GitHub-ready, clean and professional)**
 
-Copy & paste this as your README.
+# 🗑️ City-Litter-Monitor – Smart City Litter Reporting & Cleanup System
 
----
-
-# 🗑️ LitterMap – Smart City Litter Reporting & Cleanup System
-
-LitterMap is a smart waste-monitoring platform where citizens report litter hotspots using photographs, and authorities verify & track cleanup progress. It integrates **YOLOv5 litter detection**, **Flask backend**, **PostgreSQL**, and **a frontend app** to create a transparent, crowdsourced cleanliness system.
+City-Litter-Monitor is a smart waste-monitoring platform where citizens report litter hotspots using photographs, and authorities verify & track cleanup progress. It integrates **YOLOv5 litter detection**, **Flask backend**, **PostgreSQL**, and **a frontend app** to create a transparent, crowdsourced cleanliness system.
 
 ---
 
@@ -119,29 +106,54 @@ LitterMap is a smart waste-monitoring platform where citizens report litter hots
 ### 🔗 Download Model
 
 pLitterStreet_YOLOv5l.pt
-# https://github.com/gicait/pLitter/releases/download/v0.0.0-street/pLitterStreet_YOLOv5l.pt
+https://github.com/gicait/pLitter/releases/download/v0.0.0-street/pLitterStreet_YOLOv5l.pt
 
 📁 Where to place it
 
 After downloading, place the model inside:
 
-LitterMap/models/pLitterStreet_YOLOv5l.pt
+City-Litter-Monitor/models/pLitterStreet_YOLOv5l.pt
 
 
 Your folder structure should look like:
-
-LitterMap/
+```bash
+City-Litter-Monitor/
 │
 ├── models/
 │     └── pLitterStreet_YOLOv5l.pt
-
+```
 
 YOLO inference will not work unless the model is correctly placed in this folder.
+
+## 🐍 YOLOv5 Setup (Required)
+
+This project uses a local clone of YOLOv5 (v6.2) for inference.
+You must clone the repo inside the project folder.
+
+1️⃣ Clone YOLOv5
+
+From inside the project root (City-Litter-Monitor/):
+
+git clone https://github.com/ultralytics/yolov5.git
+cd yolov5
+git checkout v6.2
+
+
+This ensures compatibility with the AutoShape wrapper used in this project.
+
+2️⃣ Folder Structure After Cloning
+
+Your project should look like:
+```
+City-Litter-Monitor/
+│
+├── yolov5/
+```
 
 ## 🗂️ Project Structure
 
 ```
-LitterMap/
+City-Litter-Monitor/
 │
 ├── app.py
 ├── db.py
@@ -168,8 +180,8 @@ LitterMap/
 ### 1️⃣ Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/LitterMap.git
-cd LitterMap
+git clone https://github.com/splash1820/City-Litter-Monitor.git
+cd City-Litter-Monitor
 ```
 
 ### 2️⃣ Create a virtual environment
@@ -264,7 +276,7 @@ POST /api/reports/verify
 Reports are only accepted if:
 
 * YOLO detects litter
-* At least **5 detections** contain `"plastic"` substring
+* At least **5 detections** contain `"plastic","pile"` substring
 
 This minimizes false reporting.
 
@@ -280,14 +292,7 @@ MIT License
 
 * **Pranav** — Backend, ML integration
 * YOLOv5 contributors — Model framework
+* Model Repository - https://github.com/gicait/pLitter
 
 ---
 
-If you want, I can also generate:
-
-* a **schema.sql** file
-* a **Postman collection**
-* an **OpenAPI/Swagger specification**
-* a **Dockerfile + docker-compose**
-
-Just tell me!
