@@ -10,5 +10,9 @@ torchvision==0.17.2
 Pillow==10.2.0
 numpy==1.26.4
 
+#
+dotenv
+flask_cors
+
 # (Optional but recommended)
 opencv-python-headless==4.10.0.84
