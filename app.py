@@ -17,7 +17,7 @@ CORS(app, resources={
     r"/api/*": {
         "origins": [
             "http://localhost:5173",
-            "https://warrant-motherboard-doubt-forecasts.trycloudflare.com"
+            "https://repeat-val-recovered-colors.trycloudflare.com"
         ]
     }
 })
@@ -252,41 +252,89 @@ def report_waste():
 def upload_cleanup():
     data = request.json
     img_b64 = data.get("image")
-    report_id = data.get("report_id")
+    lat = data.get("lat")
+    lon = data.get("lon")
     description = data.get("description", "")
 
-    if not img_b64 or not report_id:
-        return jsonify({"error": "image and report_id required"}), 400
+    if not img_b64 or lat is None or lon is None:
+        return jsonify({"error": "image, lat, lon required"}), 400
 
     img_path = save_base64_image(img_b64, prefix="after")
 
     conn = get_db()
-    cur = conn.cursor()
-    try:
-        # ensure report exists
-        cur.execute("SELECT id FROM litter_reports WHERE id = %s", (report_id,))
-        if not cur.fetchone():
-            cur.close(); conn.close()
-            # delete image because report invalid
-            try: os.remove(img_path)
-            except: pass
-            return jsonify({"error": "report not found"}), 404
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
+    try:
+        # ---------------------------------------------
+        # FIND NEAREST LITTER REPORT WITHIN RADIUS
+        # ---------------------------------------------
+        cur.execute("""
+            SELECT id, lat AS rlat, lon AS rlon,
+                   (
+                       6371 * 1000 * acos(
+                           cos(radians(%s)) * cos(radians(lat)) *
+                           cos(radians(lon) - radians(%s)) +
+                           sin(radians(%s)) * sin(radians(lat))
+                       )
+                   ) AS distance
+            FROM litter_reports
+            WHERE status IN ('active', 'completed')
+            ORDER BY distance ASC
+            LIMIT 1;
+        """, (lat, lon, lat))
+
+        nearest = cur.fetchone()
+
+        if not nearest:
+            os.remove(img_path)
+            return jsonify({"error": "no nearby litter report found"}), 404
+
+        distance = nearest["distance"]
+        if distance > 20:  # 20 meters radius
+            os.remove(img_path)
+            return jsonify({
+                "error": "cleanup image too far from any report",
+                "distance": distance
+            }), 400
+
+        matched_report_id = nearest["id"]
+
+        # ---------------------------------------------
+        # INSERT CLEANUP REPORT
+        # ---------------------------------------------
         cur.execute("""
             INSERT INTO cleanup_reports (report_id, user_id, image_path, description)
             VALUES (%s, %s, %s, %s)
-        """, (report_id, g.current_user["id"], img_path, description))
+            RETURNING id
+        """, (matched_report_id, g.current_user["id"], img_path, description))
 
-        # mark the report as 'completed' (needs verification)
-        cur.execute("UPDATE litter_reports SET status = 'completed' WHERE id = %s", (report_id,))
+        cleanup_id = cur.fetchone()["id"]
+
+        # ---------------------------------------------
+        # MARK REPORT AS COMPLETED
+        # ---------------------------------------------
+        cur.execute("""
+            UPDATE litter_reports
+            SET status = 'completed'
+            WHERE id = %s
+        """, (matched_report_id,))
+
         conn.commit()
+
     except Exception as e:
         conn.rollback()
         cur.close(); conn.close()
         return jsonify({"error": "db error", "detail": str(e)}), 500
 
     cur.close(); conn.close()
-    return jsonify({"message": "cleanup stored", "report_id": report_id})
+
+    return jsonify({
+        "message": "cleanup stored",
+        "matched_report_id": matched_report_id,
+        "cleanup_id": cleanup_id,
+        "distance": distance
+    })
+
 
 # -------------------------
 # 3) GET pending reports (active)
@@ -296,18 +344,22 @@ def get_pending_reports():
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    cur.execute("SELECT * FROM litter_reports WHERE status = 'active' ORDER BY created_at DESC")
+    cur.execute("""
+        SELECT * 
+        FROM litter_reports 
+        WHERE status = 'active' 
+        ORDER BY created_at DESC
+    """)
+
     rows = cur.fetchall()
+    cur.close(); conn.close()
 
-    cur.close()
-    conn.close()
-
-    # Add base64 image to each row
     for r in rows:
-        img_b64 = image_to_base64(r["image_path"])
-        r["image_base64"] = f"data:image/jpeg;base64,{img_b64}" if img_b64 else None
+        b64 = image_to_base64(r["image_path"])
+        r["before_image_base64"] = f"data:image/jpeg;base64,{b64}"
+        r["image"] = r["before_image_base64"]   # frontend expects submission.image
 
-    return jsonify(rows)
+    return jsonify(rows)     # <-- MUST BE LIST
 
 # -------------------------
 # 4) GET completed but not verified
@@ -316,12 +368,30 @@ def get_pending_reports():
 def get_completed_reports():
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT lr.*, cr.id as cleanup_id, cr.image_path as cleanup_image, cr.created_at as cleanup_at "
-                "FROM litter_reports lr LEFT JOIN cleanup_reports cr ON lr.id = cr.report_id "
-                "WHERE lr.status = 'completed' ORDER BY lr.created_at DESC")
+
+    cur.execute("""
+        SELECT lr.*, cr.id AS cleanup_id, cr.image_path AS cleanup_image
+        FROM litter_reports lr
+        LEFT JOIN cleanup_reports cr ON lr.id = cr.report_id
+        WHERE lr.status = 'completed'
+        ORDER BY lr.created_at DESC
+    """)
+
     rows = cur.fetchall()
     cur.close(); conn.close()
+
+    for r in rows:
+        b = image_to_base64(r["image_path"])
+        r["before_image_base64"] = f"data:image/jpeg;base64,{b}"
+
+        if r.get("cleanup_image"):
+            c = image_to_base64(r["cleanup_image"])
+            r["cleanup_image_base64"] = f"data:image/jpeg;base64,{c}"
+        else:
+            r["cleanup_image_base64"] = None
+
     return jsonify(rows)
+
 
 # -------------------------
 # 5) GET verified
@@ -330,10 +400,32 @@ def get_completed_reports():
 def get_verified_reports():
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
     cur.execute("SELECT * FROM litter_reports WHERE status = 'verified' ORDER BY verified_at DESC")
     rows = cur.fetchall()
+
+    # fetch cleanup images
+    cur.execute("SELECT report_id, image_path FROM cleanup_reports")
+    cleanup = cur.fetchall()
     cur.close(); conn.close()
+
+    cleanup_map = {}
+    for c in cleanup:
+        cleanup_map.setdefault(c["report_id"], []).append(c["image_path"])
+
+    for r in rows:
+        before = image_to_base64(r["image_path"])
+        r["before_image_base64"] = f"data:image/jpeg;base64,{before}"
+
+        after_list = []
+        for p in cleanup_map.get(r["id"], []):
+            b = image_to_base64(p)
+            after_list.append(f"data:image/jpeg;base64,{b}")
+
+        r["cleanup_image_base64"] = after_list
+
     return jsonify(rows)
+
 
 # -------------------------
 # 6) Official verification endpoint
