@@ -103,6 +103,8 @@ City-Litter-Monitor is a smart waste-monitoring platform where citizens report l
 
 ---
 
+## ⚙️ Setup Instructions
+
 ### 🔗 Download Model
 
 pLitterStreet_YOLOv5l.pt
@@ -150,32 +152,55 @@ City-Litter-Monitor/
 ├── yolov5/
 ```
 
+# 💻 React Client Setup (Frontend)
+
+This project includes a React-based frontend for citizens and authorities to upload litter reports, view status, and interact with the backend.
+
+The React app is located in:
+
+LitterMap/client/
+
+
+Follow these steps to set it up:
+
+1️⃣ Navigate to the client folder
+```
+cd client
+```
+2️⃣ Install dependencies
+```
+npm install
+```
+
+3️⃣ Configure API URL (Important)
+
+Inside the React project, locate:
+
+client/src/api/appClient.js
+
+Then set:
+
+baseURL = "http://localhost:5000"; -> Your backend url
+
 ## 🗂️ Project Structure
 
 ```
-City-Litter-Monitor/
+LitterMap/
 │
-├── app.py
+├── app.py               # Flask backend
 ├── db.py
-├── .env
-├── requirements.txt
-│
-├── uploads/
 ├── models/
-│     └── pLitterStreet_YOLOv5l.pt
+├── yolov5/
 │
-├── app_Utils/
-│     └── inference.py
-│
-└── yolov5/
-      ├── models/
-      ├── utils/
-      └── ...
+├── client/              # React frontend
+│     ├── src/
+│     ├── public/
+│     └── package.json
 ```
 
 ---
 
-## ⚙️ Setup Instructions
+## 🛠️ Backend Setup
 
 ### 1️⃣ Clone the repository
 
@@ -282,16 +307,11 @@ This minimizes false reporting.
 
 ---
 
-## 📄 License
-
-MIT License
-
----
-
 ## 🙌 Contributors
 
-* **Pranav** — Backend, ML integration
-* YOLOv5 contributors — Model framework
+* **splash1820** — Backend, ML integration
+* **Samarth Jadhav** - React Frontend integration
+* YOLOv5 contributors
 * Model Repository - https://github.com/gicait/pLitter
 
 ---

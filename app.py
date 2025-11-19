@@ -2,6 +2,9 @@ import os
 import base64
 from datetime import datetime
 from functools import wraps
+import cv2
+import numpy as np
+from PIL import Image
 
 from flask import Flask, request, jsonify,g
 import psycopg2.extras
@@ -28,6 +31,40 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # -------------------------
 # Utility helpers
 # -------------------------
+
+def is_screen_image(img_path, detections, threshold=100, cover_threshold=0.80):
+    """
+    Detects if the uploaded image is a photo of a screen OR a fake printed image.
+    Two rules:
+      1. Laplacian variance is extremely high (pixel grid pattern)
+      2. Any bounding box covers > 80% of the full image
+    """
+
+    # ---------- RULE 1: Laplacian Variance ----------
+    img_gray = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    if img_gray is None:
+        return False  # can't determine, allow
+
+    lap_var = cv2.Laplacian(img_gray, cv2.CV_64F).var()
+    print("Laplacian variance:", lap_var)
+
+    if lap_var > threshold:
+        return True
+
+    # ---------- RULE 2: Bounding Box Suspicious Oversize ----------
+    h, w = img_gray.shape
+    full_area = w * h
+
+    for det in detections:
+        x1, y1, x2, y2 = det["bbox"]
+        box_area = (float(x2) - float(x1)) * (float(y2) - float(y1))
+        if box_area / full_area > cover_threshold:
+            print("Suspicious: detection covers too much area")
+            return True
+
+    return False
+
+
 def save_base64_image(b64_str, prefix="img"):
     header, data = (b64_str.split(",", 1) + [None])[:2]  # handle possible "data:image/..."
     img_bytes = base64.b64decode(data if data else b64_str)
@@ -152,6 +189,24 @@ def report_waste():
     result = detect_litter(img_path)
     print("Inference:", result)
 
+    # ---------------------------------------------------
+# SCREEN-DETECTION: Block fake photos / photo-of-screen
+# ---------------------------------------------------
+    # detections = result.get("detections", [])
+
+    # if is_screen_image(img_path, detections):
+    #     try:
+    #         print("screen detected")
+    #         os.remove(img_path)
+    #     except Exception:
+    #         pass
+
+    #     return jsonify({
+    #         "message": "rejected",
+    #         "reason": "screen_detected",
+    #         "detail": "The image appears to be a photo of a screen or printed image."
+    #     }), 200
+
     count = result.get("count", 0)
     categories = result.get("categories", [])
 
@@ -166,7 +221,7 @@ def report_waste():
     # - OR if at least 5 plastics
     if pile_count >= 1:
         accept = True
-    elif plastic_count >= 5:
+    elif plastic_count >= 2:
         accept = True
     else:
         accept = False
