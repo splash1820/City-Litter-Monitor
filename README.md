@@ -310,7 +310,7 @@ This minimizes false reporting.
 ## 🙌 Contributors
 
 * **splash1820** — Backend, ML integration
-* **Samarth Jadhav** - React Frontend integration
+* **samarthjadhav2712** - React Frontend integration
 * YOLOv5 contributors
 * Model Repository - https://github.com/gicait/pLitter
 
